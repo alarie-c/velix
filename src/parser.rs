@@ -1,9 +1,13 @@
-use crate::lexer::{Lexer, Token};
+use crate::{
+    eparser,
+    lexer::{op, Lexer, Token},
+};
 
 #[derive(Debug, PartialEq)]
 pub enum Expr {
     Integer(i32),
     Float(f32),
+    Operator(op::Operator),
     End,
 }
 
@@ -37,11 +41,21 @@ impl<Iter: Iterator<Item = char>> Parser<Iter> {
                 Some(expr) => self.output.push(expr),
                 None => {}
             },
-            Token::Operator(o) => {
-                dbg!(o);
+            Token::Operator(operator) => {
+                parse_operator(operator, &mut self.stack, &mut self.output)
             }
             Token::EndOfFile => {
+                // Reverse and drain the stack to the output
+                // This way, the highest precedence operators go on first
+                self.stack.reverse();
+                self.stack
+                    .drain(0..)
+                    .for_each(|expr| self.output.push(expr));
+
+                // Push the EOF expr to the output
                 self.output.push(Expr::End);
+
+                // Quit parsing
                 self.parsing = false;
             }
             _ => panic!("Unexpected token in parser!"),
@@ -65,5 +79,51 @@ fn parse_number(number: String) -> Option<Expr> {
             Ok(n) => Some(Expr::Integer(n)),
             Err(_) => None,
         };
+    }
+}
+
+fn parse_operator(operator: op::Operator, stack: &mut Vec<Expr>, output: &mut Vec<Expr>) {
+    match stack.last() {
+        Some(expr) => {
+            eparser(format!("Got Operator, last on stack :: {:?}", &expr));
+            match expr {
+                Expr::Operator(stack_op) => {
+                    // In this case, remove the stack op and push it to output
+                    if stack_op.precedence >= operator.precedence {
+                        eparser(format!("Stack op has a lower precendece than current op"));
+
+                        // Push the stack op to output
+                        let stack_op = stack.pop().unwrap(); // shadow stack_op, safe unwrap
+                        output.push(stack_op);
+
+                        // Create the current operator as an Expr
+                        let op = Expr::Operator(operator.clone());
+
+                        // Push the new op to the stack
+                        stack.push(op);
+                        drop(operator); // drop original Operator object from the match arm
+
+                    // In this case, put the current op to the top of stack
+                    } else {
+                        // Create the current operator as an Expr
+                        let op = Expr::Operator(operator.clone());
+
+                        // Push the new op to the stack
+                        stack.push(op);
+                        drop(operator); // drop original Operator object from the match arm
+                    }
+                }
+                _ => panic!("Expected an operator on the stack!"),
+            }
+        }
+        None => {
+            // Create the current operator as an Expr
+            let op = Expr::Operator(operator.clone());
+            eparser(format!("Creating a new operator :: {:?}", &op));
+
+            // Push the new op to the stack
+            stack.push(op);
+            drop(operator); // drop original Operator object from the match arm
+        }
     }
 }

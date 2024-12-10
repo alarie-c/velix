@@ -1,6 +1,8 @@
 use core::str;
 use std::{collections::HashMap, iter::Peekable};
 
+use crate::elexer;
+
 mod lut {
     use std::collections::HashMap;
 
@@ -40,49 +42,61 @@ pub mod op {
 
     /// Describes how and to what degree an operator
     /// affects the expressions already on the output
-    /// 
+    ///
     /// Note: Operators like +, -, etc. are parsed into
     /// reverse polish notation, so they have an associativity of left
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq)]
     pub enum Associativity {
         Left,
         Right,
     }
 
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq)]
     pub struct Operator {
         lexeme: &'static str,
         assoc: Associativity,
-        precedence: u8,
-        n_args: u8,
+        pub precedence: u8,
+        pub n_args: u8,
     }
 
     pub fn operator_map() -> HashMap<&'static str, Operator> {
         let mut map = HashMap::<&'static str, Operator>::new();
-        map.insert("+", Operator {
-            lexeme: "+",
-            assoc: Associativity::Left,
-            precedence: 1,
-            n_args: 2,
-        });
-        map.insert("-", Operator {
-            lexeme: "-",
-            assoc: Associativity::Left,
-            precedence: 1,
-            n_args: 2,
-        });
-        map.insert("*", Operator {
-            lexeme: "*",
-            assoc: Associativity::Left,
-            precedence: 2,
-            n_args: 2,
-        });
-        map.insert("/", Operator {
-            lexeme: "/",
-            assoc: Associativity::Left,
-            precedence: 1,
-            n_args: 2,
-        });
+        map.insert(
+            "+",
+            Operator {
+                lexeme: "+",
+                assoc: Associativity::Left,
+                precedence: 1,
+                n_args: 2,
+            },
+        );
+        map.insert(
+            "-",
+            Operator {
+                lexeme: "-",
+                assoc: Associativity::Left,
+                precedence: 1,
+                n_args: 2,
+            },
+        );
+        map.insert(
+            "*",
+            Operator {
+                lexeme: "*",
+                assoc: Associativity::Left,
+                precedence: 2,
+                n_args: 2,
+            },
+        );
+        map.insert(
+            "/",
+            Operator {
+                lexeme: "/",
+                assoc: Associativity::Left,
+                precedence: 1,
+                n_args: 2,
+            },
+        );
         return map;
     }
 }
@@ -106,6 +120,7 @@ pub struct Lexer<Iter: Iterator<Item = char>> {
 
 impl<Iter: Iterator<Item = char>> Lexer<Iter> {
     pub fn new(stream: Iter) -> Self {
+        elexer(format!("Parser created"));
         Self {
             stream: stream.peekable(),
             lut_digits: lut::numeric_digits(),
@@ -128,6 +143,7 @@ impl<Iter: Iterator<Item = char>> Lexer<Iter> {
                         break;
                     }
                 }
+                elexer(format!("Pushing Numeric :: {}", buffer));
                 return Token::LiteralNumeric(buffer);
 
             // Look for operators if the current character is in the operator digits LUT
@@ -137,12 +153,20 @@ impl<Iter: Iterator<Item = char>> Lexer<Iter> {
                 // lut_operators doesn't store multi-digit ops, that would be in the op map instead
                 if let Some(peek) = self.stream.peek() {
                     match self.op_map.get(format!("{}{}", c, peek).as_str()) {
-                        Some(new_op) => return Token::Operator(new_op.clone()), // break here
+                        Some(new_op) => {
+                            elexer(format!("Pushing Operator :: {:?}", &new_op));
+                            return Token::Operator(new_op.clone()); // break here
+                        }
                         None => {}
                     }
                     match self.op_map.get(str::from_utf8(&[c as u8]).unwrap()) {
-                        Some(op) => return Token::Operator(op.clone()), // break here
-                        None => panic!("Character was found in the LUT but doesn't match an op in op_map"),
+                        Some(op) => {
+                            elexer(format!("Pushing Operator :: {:?}", &op));
+                            return Token::Operator(op.clone()); // break here
+                        }
+                        None => panic!(
+                            "Character was found in the LUT but doesn't match an op in op_map"
+                        ),
                     }
                 }
 
