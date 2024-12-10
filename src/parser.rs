@@ -37,6 +37,9 @@ impl<Iter: Iterator<Item = char>> Parser<Iter> {
                 Some(expr) => self.output.push(expr),
                 None => {}
             },
+            Token::Operator(o) => {
+                dbg!(o);
+            }
             Token::EndOfFile => {
                 self.output.push(Expr::End);
                 self.parsing = false;

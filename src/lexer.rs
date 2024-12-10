@@ -1,3 +1,4 @@
+use core::str;
 use std::{collections::HashMap, iter::Peekable};
 
 mod lut {
@@ -23,12 +24,74 @@ mod lut {
         });
         return lut;
     }
+
+    pub fn operator_digits() -> HashMap<char, bool> {
+        let mut lut = HashMap::<char, bool>::new();
+        lut.insert('+', true);
+        lut.insert('-', true);
+        lut.insert('*', true);
+        lut.insert('/', true);
+        return lut;
+    }
+}
+
+pub mod op {
+    use std::collections::HashMap;
+
+    /// Describes how and to what degree an operator
+    /// affects the expressions already on the output
+    /// 
+    /// Note: Operators like +, -, etc. are parsed into
+    /// reverse polish notation, so they have an associativity of left
+    #[derive(Debug, Clone)]
+    pub enum Associativity {
+        Left,
+        Right,
+    }
+
+    #[derive(Debug, Clone)]
+    pub struct Operator {
+        lexeme: &'static str,
+        assoc: Associativity,
+        precedence: u8,
+        n_args: u8,
+    }
+
+    pub fn operator_map() -> HashMap<&'static str, Operator> {
+        let mut map = HashMap::<&'static str, Operator>::new();
+        map.insert("+", Operator {
+            lexeme: "+",
+            assoc: Associativity::Left,
+            precedence: 1,
+            n_args: 2,
+        });
+        map.insert("-", Operator {
+            lexeme: "-",
+            assoc: Associativity::Left,
+            precedence: 1,
+            n_args: 2,
+        });
+        map.insert("*", Operator {
+            lexeme: "*",
+            assoc: Associativity::Left,
+            precedence: 2,
+            n_args: 2,
+        });
+        map.insert("/", Operator {
+            lexeme: "/",
+            assoc: Associativity::Left,
+            precedence: 1,
+            n_args: 2,
+        });
+        return map;
+    }
 }
 
 #[derive(Debug)]
 pub enum Token {
     LiteralNumeric(String),
     LiteralString(String),
+    Operator(op::Operator),
     EndOfFile,
 }
 
@@ -37,6 +100,8 @@ pub struct Lexer<Iter: Iterator<Item = char>> {
     stream: Peekable<Iter>,
     lut_digits: HashMap<char, bool>,
     lut_whitespace: HashMap<char, bool>,
+    lut_operators: HashMap<char, bool>,
+    op_map: HashMap<&'static str, op::Operator>,
 }
 
 impl<Iter: Iterator<Item = char>> Lexer<Iter> {
@@ -45,6 +110,8 @@ impl<Iter: Iterator<Item = char>> Lexer<Iter> {
             stream: stream.peekable(),
             lut_digits: lut::numeric_digits(),
             lut_whitespace: lut::whitespace_digits(),
+            lut_operators: lut::operator_digits(),
+            op_map: op::operator_map(),
         }
     }
 
@@ -56,14 +123,28 @@ impl<Iter: Iterator<Item = char>> Lexer<Iter> {
                 let mut buffer = String::from(c);
                 while let Some(peek) = self.stream.peek() {
                     if *self.lut_digits.get(&peek).unwrap_or(&false) {
-                        // Safe unwrap, we peek() above
-                        println!("Pusshing to buffer");
-                        buffer.push(self.stream.next().unwrap());
+                        buffer.push(self.stream.next().unwrap()); // safe unwrap, we peek() above
                     } else {
                         break;
                     }
                 }
                 return Token::LiteralNumeric(buffer);
+
+            // Look for operators if the current character is in the operator digits LUT
+            } else if *self.lut_operators.get(&c).unwrap_or(&false) {
+                // Check to see if the next thing is also an operator
+                // Some ops are 2 digits lone, but are composed of digits found in lut_operatiors
+                // lut_operators doesn't store multi-digit ops, that would be in the op map instead
+                if let Some(peek) = self.stream.peek() {
+                    match self.op_map.get(format!("{}{}", c, peek).as_str()) {
+                        Some(new_op) => return Token::Operator(new_op.clone()), // break here
+                        None => {}
+                    }
+                    match self.op_map.get(str::from_utf8(&[c as u8]).unwrap()) {
+                        Some(op) => return Token::Operator(op.clone()), // break here
+                        None => panic!("Character was found in the LUT but doesn't match an op in op_map"),
+                    }
+                }
 
             // Ignore whitespace and continue
             } else if *self.lut_whitespace.get(&c).unwrap_or(&false) {
