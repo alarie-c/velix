@@ -16,6 +16,21 @@ mod lut {
         return lut;
     }
 
+    pub fn identifier_digits() -> HashMap<char, bool> {
+        let mut lut = HashMap::<char, bool>::new();
+        ('a'..='z').for_each(|c| {
+            lut.insert(c, true);
+        });
+        ('A'..='Z').for_each(|c| {
+            lut.insert(c, true);
+        });
+        ('0'..='9').for_each(|c| {
+            lut.insert(c, true);
+        });
+        lut.insert('_', true);
+        return lut;
+    }
+
     /// Creates the lookup table for digits considered whitespace, which will be ignored
     /// -> `\t\r\n `
     pub fn whitespace_digits() -> HashMap<char, bool> {
@@ -35,6 +50,8 @@ mod lut {
         lut.insert('/', true);
         lut.insert('(', true);
         lut.insert(')', true);
+        lut.insert('=', true);
+        lut.insert(';', true);
         return lut;
     }
 }
@@ -101,6 +118,24 @@ pub mod op {
             },
         );
         map.insert(
+            "=",
+            Operator {
+                lexeme: "=",
+                assoc: Associativity::Left,
+                precedence: 0,
+                n_args: 2,
+            },
+        );
+        map.insert(
+            ";",
+            Operator {
+                lexeme: ";",
+                assoc: Associativity::None,
+                precedence: 9,
+                n_args: 0,
+            },
+        );
+        map.insert(
             "(",
             Operator {
                 lexeme: "(",
@@ -126,6 +161,7 @@ pub mod op {
 pub enum Token {
     LiteralNumeric(String),
     LiteralString(String),
+    Identifier(String),
     Operator(op::Operator),
     EndOfFile,
 }
@@ -134,6 +170,7 @@ pub enum Token {
 pub struct Lexer<Iter: Iterator<Item = char>> {
     stream: Peekable<Iter>,
     lut_digits: HashMap<char, bool>,
+    lut_identifier: HashMap<char, bool>,
     lut_whitespace: HashMap<char, bool>,
     lut_operators: HashMap<char, bool>,
     op_map: HashMap<&'static str, op::Operator>,
@@ -145,6 +182,7 @@ impl<Iter: Iterator<Item = char>> Lexer<Iter> {
         Self {
             stream: stream.peekable(),
             lut_digits: lut::numeric_digits(),
+            lut_identifier: lut::identifier_digits(),
             lut_whitespace: lut::whitespace_digits(),
             lut_operators: lut::operator_digits(),
             op_map: op::operator_map(),
@@ -166,6 +204,20 @@ impl<Iter: Iterator<Item = char>> Lexer<Iter> {
                 }
                 elexer(format!("Pushing Numeric :: {}", buffer));
                 return Token::LiteralNumeric(buffer);
+
+            // Look for identifier digits
+            } else if *self.lut_identifier.get(&c).unwrap_or(&false) {
+                // Consume until not identifier digit
+                let mut buffer = String::from(c);
+                while let Some(peek) = self.stream.peek() {
+                    if *self.lut_identifier.get(&peek).unwrap_or(&false) {
+                        buffer.push(self.stream.next().unwrap()); // safe unwrap, we peek() above
+                    } else {
+                        break;
+                    }
+                }
+                elexer(format!("Pushing Identifier :: {}", buffer));
+                return Token::Identifier(buffer);
 
             // Look for operators if the current character is in the operator digits LUT
             } else if *self.lut_operators.get(&c).unwrap_or(&false) {

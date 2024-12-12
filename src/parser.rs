@@ -8,6 +8,7 @@ pub enum Expr {
     Integer(i32),
     Float(f32),
     Operator(op::Operator),
+    Identifier(String),
     End,
 }
 
@@ -46,6 +47,9 @@ impl<Iter: Iterator<Item = char>> Parser<Iter> {
                 Some(expr) => self.output.push(expr),
                 None => {}
             },
+            Token::Identifier(identifer) => {
+                self.output.push(Expr::Identifier(identifer));
+            }
             Token::Operator(operator) => {
                 parse_operator(operator, &mut self.stack, &mut self.output)
             }
@@ -105,6 +109,14 @@ fn parse_operator(operator: op::Operator, stack: &mut Vec<Expr>, output: &mut Ve
         }
         stack.reverse();
         return; // early return out of this
+    } else if operator.lexeme == ";" {
+        // drain the stack
+        stack.reverse();
+        stack
+            .drain(0..)
+            .for_each(|expr| output.push(expr));
+        stack.reverse();
+        return; // early return
     }
 
     match stack.last() {
