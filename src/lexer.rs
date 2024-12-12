@@ -33,6 +33,8 @@ mod lut {
         lut.insert('-', true);
         lut.insert('*', true);
         lut.insert('/', true);
+        lut.insert('(', true);
+        lut.insert(')', true);
         return lut;
     }
 }
@@ -49,11 +51,12 @@ pub mod op {
     pub enum Associativity {
         Left,
         Right,
+        None, // for parentheses
     }
 
     #[derive(Debug, Clone, PartialEq)]
     pub struct Operator {
-        lexeme: &'static str,
+        pub lexeme: &'static str,
         assoc: Associativity,
         pub precedence: u8,
         pub n_args: u8,
@@ -95,6 +98,24 @@ pub mod op {
                 assoc: Associativity::Left,
                 precedence: 1,
                 n_args: 2,
+            },
+        );
+        map.insert(
+            "(",
+            Operator {
+                lexeme: "(",
+                assoc: Associativity::None,
+                precedence: 9,
+                n_args: 0,
+            },
+        );
+        map.insert(
+            ")",
+            Operator {
+                lexeme: ")",
+                assoc: Associativity::None,
+                precedence: 9,
+                n_args: 0,
             },
         );
         return map;

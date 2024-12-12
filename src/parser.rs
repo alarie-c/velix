@@ -29,6 +29,10 @@ impl<Iter: Iterator<Item = char>> Parser<Iter> {
         }
     }
 
+    pub fn _step(&self) {
+        println!("[PARSER] PARSER STEPPED\nSTACK:\n\t{:#?}\nOUTPUT:\n\t{:#?}\n\n", self.stack, self.output);
+    }
+
     pub fn parse(&mut self) {
         while self.parsing {
             self.next_expr();
@@ -36,6 +40,7 @@ impl<Iter: Iterator<Item = char>> Parser<Iter> {
     }
 
     fn next_expr(&mut self) {
+        //self._step();
         match self.lexer.next() {
             Token::LiteralNumeric(number) => match parse_number(number) {
                 Some(expr) => self.output.push(expr),
@@ -83,14 +88,41 @@ fn parse_number(number: String) -> Option<Expr> {
 }
 
 fn parse_operator(operator: op::Operator, stack: &mut Vec<Expr>, output: &mut Vec<Expr>) {
+    // Check to see if this operator is a closing parenthesis
+    // If so, drain the stack to the output until an open par is found
+    if operator.lexeme == ")" {
+        'lookfor_par: while let Some(expr) = stack.pop() {
+            match &expr {
+                Expr::Operator(stack_op) => {
+                    if stack_op.lexeme == "(" {
+                        // Stop here
+                        break 'lookfor_par;
+                    }
+                }
+                _ => {},
+            }
+            output.push(expr)
+        }
+        stack.reverse();
+        return; // early return out of this
+    }
+
     match stack.last() {
         Some(expr) => {
-            eparser(format!("Got Operator, last on stack :: {:?}", &expr));
+            eparser(format!("New Op :: {:?} Last on stack :: {:?}", &operator, &expr));
             match expr {
                 Expr::Operator(stack_op) => {
+                    if stack_op.lexeme == "(" {
+                        eparser(format!("The operator on the stack is an OPEN PAR"));
+                        // just push the new op onto the stack regardless
+                        let op = Expr::Operator(operator.clone());
+                        stack.push(op);
+                        return; // early return from this
+                    }
+
                     // In this case, remove the stack op and push it to output
                     if stack_op.precedence >= operator.precedence {
-                        eparser(format!("Stack op has a lower precendece than current op"));
+                        eparser(format!("Stack op has a greater precendece than current op"));
 
                         // Push the stack op to output
                         let stack_op = stack.pop().unwrap(); // shadow stack_op, safe unwrap
