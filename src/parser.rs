@@ -15,9 +15,9 @@ pub enum Expr {
 #[derive(Debug)]
 pub struct Parser<Iter: Iterator<Item = char>> {
     stack: Vec<Expr>,
-    output: Vec<Expr>,
     lexer: Lexer<Iter>,
     parsing: bool,
+    pub output: Vec<Expr>,
 }
 
 impl<Iter: Iterator<Item = char>> Parser<Iter> {
@@ -31,7 +31,10 @@ impl<Iter: Iterator<Item = char>> Parser<Iter> {
     }
 
     pub fn _step(&self) {
-        println!("[PARSER] PARSER STEPPED\nSTACK:\n\t{:#?}\nOUTPUT:\n\t{:#?}\n\n", self.stack, self.output);
+        println!(
+            "[PARSER] PARSER STEPPED\nSTACK:\n\t{:#?}\nOUTPUT:\n\t{:#?}\n\n",
+            self.stack, self.output
+        );
     }
 
     pub fn parse(&mut self) {
@@ -103,7 +106,7 @@ fn parse_operator(operator: op::Operator, stack: &mut Vec<Expr>, output: &mut Ve
                         break 'lookfor_par;
                     }
                 }
-                _ => {},
+                _ => {}
             }
             output.push(expr)
         }
@@ -112,16 +115,17 @@ fn parse_operator(operator: op::Operator, stack: &mut Vec<Expr>, output: &mut Ve
     } else if operator.lexeme == ";" {
         // drain the stack
         stack.reverse();
-        stack
-            .drain(0..)
-            .for_each(|expr| output.push(expr));
+        stack.drain(0..).for_each(|expr| output.push(expr));
         stack.reverse();
         return; // early return
     }
 
     match stack.last() {
         Some(expr) => {
-            eparser(format!("New Op :: {:?} Last on stack :: {:?}", &operator, &expr));
+            eparser(format!(
+                "New Op :: {:?} Last on stack :: {:?}",
+                &operator, &expr
+            ));
             match expr {
                 Expr::Operator(stack_op) => {
                     if stack_op.lexeme == "(" {

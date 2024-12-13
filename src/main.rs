@@ -1,5 +1,6 @@
 use std::fs;
 
+mod cair;
 mod lexer;
 mod parser;
 
@@ -29,4 +30,8 @@ fn main() {
     let mut parser = parser::Parser::new(source.chars());
     parser.parse();
     dbg!(&parser);
+
+    let mut ir_gen = cair::IRGen::new(parser.output);
+    ir_gen.gen();
+    dbg!(&ir_gen);
 }
